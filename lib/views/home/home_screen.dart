@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:nep_pay/controllers/auth_controller.dart';
 import 'package:nep_pay/controllers/transaction_controller.dart';
 import 'package:nep_pay/controllers/user_controller.dart';
+import 'package:nep_pay/models/user_model.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -26,8 +27,18 @@ class _HomeScreenState extends State<HomeScreen> {
     final String? email = user?.email;
     final String? profilePicUrl = user?.userMetadata?['avatar_url'];
     String reciverUid = "";
+    UserModel? reciverData;
 
-    // final String uid = user!.id.toString();
+    Future<void> getReciverData() async {
+      if (reciverUid.isNotEmpty) {
+        final data = await TransactionController().getReciversUserData(
+          reciverUid,
+        );
+        setState(() {
+          reciverData = data;
+        });
+      }
+    }
 
     return Scaffold(
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
@@ -67,6 +78,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         for (final barcode in barcodes) {
                                           setState(() {
                                             reciverUid = barcode.rawValue ?? '';
+                                            getReciverData();
                                           });
                                         }
                                       },
@@ -76,7 +88,22 @@ class _HomeScreenState extends State<HomeScreen> {
 
                                   reciverUid.isEmpty
                                       ? SizedBox()
-                                      : Text("user id: ${reciverUid}"),
+                                      : Column(
+                                        children: [
+                                          Text("UID: $reciverUid"),
+                                          if (reciverData != null)
+                                            Column(
+                                              children: [
+                                                Text(
+                                                  "Gmail: ${reciverData!.gmail}",
+                                                ),
+                                                Text(
+                                                  "User Name: ${reciverData!.userName}",
+                                                ),
+                                              ],
+                                            ),
+                                        ],
+                                      ),
                                   SizedBox(height: 20),
                                   TextField(
                                     controller: HomeScreen.amountController,
@@ -90,13 +117,37 @@ class _HomeScreenState extends State<HomeScreen> {
                                   SizedBox(height: 20),
                                   ElevatedButton(
                                     onPressed: () {
-                                      TransactionController().sendMoney(
-                                        double.parse(
-                                          HomeScreen.amountController.text
-                                              .toString(),
-                                        ),
-                                        reciverUid,
-                                      );
+                                      if (reciverUid ==
+                                          Supabase
+                                              .instance
+                                              .client
+                                              .auth
+                                              .currentUser!
+                                              .id
+                                              .toString()) {
+                                        debugPrint(
+                                          "Cant Sent money to yourself",
+                                        );
+                                      }
+                                      if (HomeScreen
+                                              .amountController
+                                              .text
+                                              .isEmpty ||
+                                          double.parse(
+                                                HomeScreen.amountController.text
+                                                    .toString(),
+                                              ) ==
+                                              0.00) {
+                                        debugPrint("Enter an amount ");
+                                      } else {
+                                        TransactionController().sendMoney(
+                                          double.parse(
+                                            HomeScreen.amountController.text
+                                                .toString(),
+                                          ),
+                                          reciverUid,
+                                        );
+                                      }
                                     },
                                     child: Text('Send Payment'),
                                   ),

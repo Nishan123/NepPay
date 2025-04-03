@@ -1,9 +1,8 @@
 import 'package:supabase_flutter/supabase_flutter.dart' as spb;
-import 'package:nep_pay/models/user.dart';
+import 'package:nep_pay/models/user_model.dart';
 
 class UserController {
-
-  Stream<User> streamUserInfo() {
+  Stream<UserModel> streamUserInfo() {
     final supabase = spb.Supabase.instance.client;
     final currentUser = supabase.auth.currentUser;
 
@@ -12,7 +11,7 @@ class UserController {
           .from('users')
           .stream(primaryKey: ['id'])
           .eq('uid', currentUser.id)
-          .map((event) => User.fromMap(event.first));
+          .map((event) => UserModel.fromMap(event.first));
     } else {
       throw Exception('No user logged in');
     }
