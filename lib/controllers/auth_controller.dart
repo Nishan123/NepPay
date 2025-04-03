@@ -49,8 +49,8 @@ class AuthController {
 
       await client().from('users').insert({
         'uid': user.id,
-        'user_name': fullName,
-        'available_balance': 0.00,
+        'userName': fullName,
+        'availableBalance': 0.00,
         'gmail': email,
       });
     }

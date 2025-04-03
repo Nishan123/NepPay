@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:nep_pay/controllers/auth_controller.dart';
 import 'package:nep_pay/controllers/transaction_controller.dart';
 import 'package:nep_pay/controllers/user_controller.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   // Move controllers outside build method
@@ -12,13 +14,20 @@ class HomeScreen extends StatelessWidget {
   static final TextEditingController amountController = TextEditingController();
 
   @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  @override
   Widget build(BuildContext context) {
     final user = Supabase.instance.client.auth.currentUser;
 
     final String? username = user?.userMetadata?['full_name'];
     final String? email = user?.email;
     final String? profilePicUrl = user?.userMetadata?['avatar_url'];
-    final String uid = user!.id.toString();
+    String reciverUid = "";
+
+    // final String uid = user!.id.toString();
 
     return Scaffold(
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
@@ -33,65 +42,90 @@ class HomeScreen extends StatelessWidget {
               borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
             ),
             builder: (BuildContext context) {
-              return Padding(
-                padding: EdgeInsets.only(
-                  bottom: MediaQuery.of(context).viewInsets.bottom,
-                ),
-                child: SingleChildScrollView(
-                  // Wrap with SingleChildScrollView
-                  child: Container(
-                    padding: EdgeInsets.all(16),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Divider(
-                          color: Colors.black26,
-                          thickness: 4,
-                          endIndent: 80,
-                          indent: 80,
-                        ),
-                        SizedBox(height: 16),
-                        Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            TextField(
-                              controller: uidController,
-                              decoration: InputDecoration(hintText: "UID"),
-                            ),
-                            SizedBox(height: 10),
-                            TextField(
-                              controller: amountController,
-                              decoration: InputDecoration(hintText: "Amount"),
-                              keyboardType: TextInputType.number,
-                            ),
-                            SizedBox(height: 20),
-                            ElevatedButton(
-                              onPressed: () {
-                                // String id = randomAlphaNumeric(6);
-                                // final transaction = Transcation(
-                                //   transactionId: id,
-                                //   reciverUid: uidController.text.toString(),
-                                //   senderUid: uid,
-                                //   amount: double.parse(amountController.text),
-                                // );
-                                // TransactionController().makeTranscation(
-                                //   transaction,
-                                // );
+              return DefaultTabController(
+                length: 2,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TabBar(tabs: [Tab(text: "Scan QR"), Tab(text: "Share QR")]),
+                    SizedBox(height: 10),
+                    SizedBox(
+                      height: 600,
+                      child: TabBarView(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: SingleChildScrollView(
+                              child: Column(
+                                children: [
+                                  SizedBox(
+                                    height: 300,
+                                    child: MobileScanner(
+                                      onDetect: (capture) {
+                                        final List<Barcode> barcodes =
+                                            capture.barcodes;
+                                        for (final barcode in barcodes) {
+                                          setState(() {
+                                            reciverUid = barcode.rawValue ?? '';
+                                          });
+                                        }
+                                      },
+                                    ),
+                                  ),
+                                  SizedBox(height: 20),
 
-                                TransactionController().sendMoney(
-                                  double.parse(amountController.text),
-                                  uidController.text,
-                                );
-                                Navigator.pop(context);
-                              },
-                              child: Text("Send money"),
+                                  reciverUid.isEmpty
+                                      ? SizedBox()
+                                      : Text("user id: ${reciverUid}"),
+                                  SizedBox(height: 20),
+                                  TextField(
+                                    controller: HomeScreen.amountController,
+                                    keyboardType: TextInputType.number,
+                                    decoration: InputDecoration(
+                                      labelText: 'Amount',
+                                      border: OutlineInputBorder(),
+                                      prefixIcon: Icon(Icons.money),
+                                    ),
+                                  ),
+                                  SizedBox(height: 20),
+                                  ElevatedButton(
+                                    onPressed: () {
+                                      TransactionController().sendMoney(
+                                        double.parse(
+                                          HomeScreen.amountController.text
+                                              .toString(),
+                                        ),
+                                        reciverUid,
+                                      );
+                                    },
+                                    child: Text('Send Payment'),
+                                  ),
+                                ],
+                              ),
                             ),
-                            SizedBox(height: 20),
-                          ],
-                        ),
-                      ],
+                          ),
+                          Column(
+                            children: [
+                              Text("My QR"),
+                              SizedBox(height: 40),
+                              QrImageView(
+                                data:
+                                    Supabase
+                                        .instance
+                                        .client
+                                        .auth
+                                        .currentUser!
+                                        .id
+                                        .toString(),
+                                version: QrVersions.auto,
+                                size: 200.0,
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               );
             },
@@ -159,7 +193,6 @@ class HomeScreen extends StatelessWidget {
                       style: Theme.of(context).textTheme.titleLarge,
                     );
                   }
-
                   return Text('No data available');
                 },
               ),
